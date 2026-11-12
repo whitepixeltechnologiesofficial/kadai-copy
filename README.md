@@ -26,11 +26,13 @@ KADAI is an AI-powered small-business e-commerce platform. Sellers can create pr
 
 ## AI Usage
 
-KADAI uses AI for three main tasks:
+KADAI uses AI for three jobs:
 
-1. **Product listing generation:** The seller uploads an image and adds a product note. The image is uploaded to Supabase Storage, and AI generates structured listing information.
-2. **Shopping assistance:** The assistant answers customer questions using the supplied shop and product information.
-3. **Fallback handling:** Gemini is tried first. If it fails, the application tries Groq. If both providers fail, the application returns an AI service error or preserves the uploaded image for manual listing completion.
+1. **Listing writer:** the seller uploads a product photo (plus an optional note). Gemini looks at the photo and writes the name, description, a suggested price and key details. The seller can edit everything before publishing.
+2. **Shop assistant:** buyers chat with an AI assistant that answers only from the product's details, never changes the price, and offers a "Confirm & pay" button when the buyer wants to buy.
+3. **Reminder writer (split payments):** writes a friendly WhatsApp-style reminder that names only the friends who still need to pay, with the tracker link.
+
+**Fallback:** Gemini Flash is tried first. If it fails, text jobs (chat and reminders) retry with Groq. Groq can't read photos, so if the listing step fails, the seller fills the form by hand (the photo is still saved).
 
 The AI listing endpoint validates image size, MIME type, and file signature. Supported formats are JPG, PNG, and WEBP. Maximum image size is 4 MB.
 
@@ -97,8 +99,8 @@ kadai/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/ksatheeshkumar939-oss/kadai.git
-cd kadai
+git clone https://github.com/whitepixeltechnologiesofficial/kadai-copy.git
+cd kadai-copy
 ```
 
 ### 2. Install dependencies
@@ -135,12 +137,50 @@ Never commit `.env.local` or expose API keys and service-role credentials.
 
 ### 4. Configure Supabase
 
-- Create a Supabase project.
-- Configure the required database tables and permissions for the application.
-- Create a public Storage bucket named `product-images`.
-- Add the Supabase URL and service-role key to `.env.local`.
+1. Create a Supabase project and copy the **Project URL** and **service_role key** into `.env.local`.
+2. Go to **SQL Editor**, paste the SQL below and click **Run**.
+3. Go to **Storage**, create a bucket named `product-images` and set it to **Public**.
 
-**Note:** The database SQL setup scripts are not included in this repository. Obtain the required schema and setup instructions from the project team before configuring a fresh database.
+```sql
+create table products (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text not null,
+  price numeric(10,2) not null check (price > 0),
+  image_url text not null,
+  details jsonb not null default '{}'::jsonb,
+  status text not null default 'published' check (status in ('draft','published')),
+  created_at timestamptz not null default now()
+);
+
+create table orders (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references products(id),
+  buyer_name text,
+  total numeric(10,2) not null,
+  type text not null check (type in ('single','split')),
+  status text not null default 'pending'
+    check (status in ('pending','paid','partially_paid','fully_paid')),
+  paypal_order_id text unique,
+  created_at timestamptz not null default now()
+);
+
+create table split_shares (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references orders(id) on delete cascade,
+  participant_name text not null,
+  amount numeric(10,2) not null,
+  paypal_order_id text unique,
+  status text not null default 'pending' check (status in ('pending','paid')),
+  paid_at timestamptz
+);
+
+alter table products enable row level security;
+alter table orders enable row level security;
+alter table split_shares enable row level security;
+```
+
+Row level security is on with no rules, so the browser can't read or write the tables directly. Only the server can, using the service role key.
 
 ### 5. Start the development server
 
@@ -169,6 +209,8 @@ http://localhost:3000
 4. Use a Sandbox Personal account to test buyer payments.
 5. Verify order creation, approval, and capture.
 
+> **Sandbox test login:** use any PayPal sandbox **Personal** account to pay. No real money is used.
+
 No real money should be used during Sandbox testing.
 
 ## Known Limitations
@@ -176,7 +218,7 @@ No real money should be used during Sandbox testing.
 - The application uses PayPal Sandbox for testing, not live payment processing.
 - AI-generated product information must be reviewed by the seller before publishing.
 - AI responses depend on the configured AI providers and their availability.
-- A fresh Supabase database requires the correct project schema and storage configuration.
+- Demo only: one shop, one seller, no login, USD only, no delivery or refunds.
 - Split payments depend on the `SPLIT_ENABLED` setting.
 
 ## Deployment
@@ -192,8 +234,8 @@ This project is licensed under the MIT License. See the repository's `LICENSE` f
 
 Add the following screenshots after running the application locally:
 
-1. **Shop Home Page** – `screenshots/shop-home.png`
-2. **AI Product Listing** – `screenshots/ai-product-listing.png`
-3. **AI Shopping Assistant** – `screenshots/ai-shopping-assistant.png`
-4. **PayPal Checkout** – `screenshots/paypal-checkout.png`
+1. **Shop Home Page** - `screenshots/shop-home.png`
+2. **AI Product Listing** - `screenshots/ai-product-listing.png`
+3. **AI Shopping Assistant** - `screenshots/ai-shopping-assistant.png`
+4. **PayPal Checkout** - `screenshots/paypal-checkout.png`
 

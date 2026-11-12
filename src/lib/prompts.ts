@@ -1,12 +1,20 @@
 export function listingPrompt(note: string): string {
-  return `
-You are an AI product listing assistant for KADAI.
+  return `You help small home-based sellers list their products online.
+Look at the product photo and read the seller's note.
 
-Create a clear and attractive product listing from this seller's note:
-"${note}"
+Return ONLY the JSON in the given format.
 
-Return product details in a simple, accurate format.
-Never invent prices, quantities, or product specifications.
+Rules:
+- name: short and clear, maximum 6 words.
+- description: 30 to 60 words, warm and simple, no exaggeration.
+- suggested_price_usd: a realistic price for a small home business, in US dollars.
+- details: only facts you can SEE in the photo or that the seller WROTE in the note
+  (for example colour, size, weight, material, eggless). Maximum 6 items.
+  Each item has a short "key" (like "weight") and a "value" (like "1 kg").
+- NEVER invent ingredients, sizes, allergy information, or delivery promises.
+- If you are not sure about something, leave it out.
+
+Seller's note: ${note || "none"}
 `;
 }
 

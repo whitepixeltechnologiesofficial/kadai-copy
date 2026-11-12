@@ -63,6 +63,15 @@ function ProductPageInner() {
   const [splitInput, setSplitInput] = useState("");
   const [splitFormError, setSplitFormError] = useState("");
   const splitLock = useRef(false);
+  const [splitEnabled, setSplitEnabled] = useState(false);
+
+  // Show the Split button only when SPLIT_ENABLED=true on the server
+  useEffect(() => {
+    fetch("/api/config", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => setSplitEnabled(Boolean(c?.splitEnabled)))
+      .catch(() => setSplitEnabled(false));
+  }, []);
 
   useEffect(() => {
     fetch("/api/products", { cache: "no-store" })
@@ -269,6 +278,7 @@ function ProductPageInner() {
             {paying && <Spinner />}
             {paying ? "Opening PayPal..." : "Buy now"}
           </button>
+          {splitEnabled && (
           <button
             type="button"
             onClick={() => setShowSplitForm((v) => !v)}
@@ -277,7 +287,8 @@ function ProductPageInner() {
           >
             Split with friends
           </button>
-          {showSplitForm && (
+          )}
+          {splitEnabled && showSplitForm && (
             <form onSubmit={submitSplitForm} className="mt-2 space-y-2 rounded-xl border bg-white p-3">
               <label className="block text-sm font-medium text-gray-700">
                 Who is paying? Include yourself.

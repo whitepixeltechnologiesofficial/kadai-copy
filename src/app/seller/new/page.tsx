@@ -12,6 +12,23 @@ function Spinner() {
   );
 }
 
+// Turn the Details box ("weight: 1 kg" on each line) into { weight: "1 kg" }.
+// A line without ":" is kept under "Note".
+function parseDetails(text: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (!t) continue;
+    const i = t.indexOf(":");
+    let key = i > 0 ? t.slice(0, i).trim() : "Note";
+    const value = i > 0 ? t.slice(i + 1).trim() : t;
+    if (!value) continue;
+    if (out[key]) key = `${key} ${Object.keys(out).length + 1}`;
+    if (Object.keys(out).length < 6) out[key] = value;
+  }
+  return out;
+}
+
 export default function NewProductPage() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
@@ -75,10 +92,7 @@ export default function NewProductPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append(
-        "note",
-        note.trim() || "Create a product listing based on this product image."
-      );
+      formData.append("note", note.trim());
 
       const response = await fetch("/api/ai/listing", {
         method: "POST",
@@ -154,7 +168,7 @@ export default function NewProductPage() {
           description: description.trim(),
           price: numericPrice,
           image_url: imageUrl,
-          details: details.trim() ? { "Product details": details.trim() } : {},
+          details: parseDetails(details),
         }),
       });
       const result = await response.json();
@@ -309,7 +323,7 @@ export default function NewProductPage() {
               value={details}
               onChange={(e) => setDetails(e.target.value)}
               rows={3}
-              placeholder="Additional product details"
+              placeholder={"One per line, e.g.\nweight: 1 kg\neggless: yes"}
               className="w-full rounded-xl border p-3 text-base outline-none focus:border-[#0F766E] sm:text-sm"
             />
           </div>

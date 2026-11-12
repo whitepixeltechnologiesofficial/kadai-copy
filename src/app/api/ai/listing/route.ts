@@ -16,11 +16,15 @@ const ALLOWED_TYPES = {
   "image/webp": "webp",
 } as const;
 
+// Details come back as a list of {key, value} pairs (Gemini handles a list
+// better than an open object). We turn it into an object before returning.
+// Kept loose on purpose: strict limits here would make the whole AI call fail
+// if the AI goes 1 character over. We trim and check the answer below instead.
 const listingSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().min(1),
-  suggested_price_usd: z.number().nonnegative(),
-  details: z.string(),
+  name: z.string(),
+  description: z.string(),
+  suggested_price_usd: z.number(),
+  details: z.array(z.object({ key: z.string(), value: z.string() })),
 });
 
 function isValidImageSignature(
@@ -71,12 +75,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (typeof note !== "string" || !note.trim()) {
-      return NextResponse.json(
-        { error: "Product note is required." },
-        { status: 400 }
-      );
-    }
+    // The note is optional
+    const noteText = typeof note === "string" ? note.trim().slice(0, 500) : "";
 
     if (file.size === 0 || file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
     // Generate AI listing
     try {
       const listing = await aiJson(
-        listingPrompt(note.trim()),
+        listingPrompt(noteText),
         listingSchema,
         {
           data: buffer,
@@ -142,10 +142,23 @@ export async function POST(request: NextRequest) {
         }
       );
 
+      const price = Math.round(Number(listing.suggested_price_usd) * 100) / 100;
+
+      const details: Record<string, string> = {};
+      for (const d of listing.details) {
+        const key = d.key.trim().slice(0, 40);
+        const value = d.value.trim().slice(0, 100);
+        if (key && value && Object.keys(details).length < 6) details[key] = value;
+      }
+
       return NextResponse.json({
         image_url: imageUrl,
         ai_failed: false,
-        ...listing,
+        name: listing.name.trim().slice(0, 60),
+        description: listing.description.trim().slice(0, 400),
+        // Outside $1-$500 = not sensible, leave the price empty for the seller
+        suggested_price_usd: price >= 1 && price <= 500 ? price : null,
+        details,
       });
     } catch (aiError) {
       console.error("Listing AI failed:", aiError);

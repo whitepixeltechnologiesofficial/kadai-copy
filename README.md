@@ -1,5 +1,10 @@
 # KADAI – Shop in a Chat
 
+**Live demo:** https://kadai-copy.onrender.com  (free hosting – the first visit can take up to a minute to wake up)
+
+- Shop: https://kadai-copy.onrender.com/shop
+- Seller dashboard: https://kadai-copy.onrender.com/seller
+
 KADAI is an AI-powered small-business e-commerce platform. Sellers can create product listings using photos and AI, while customers can discover products, ask questions through an AI shopping assistant, and pay using PayPal Sandbox.
 
 ## Features
@@ -49,14 +54,17 @@ The payment flow is:
 
 Use PayPal Sandbox credentials only during development and testing.
 
-## Split Payments
+## Split with Friends
 
-Split-payment functionality is controlled using the `SPLIT_ENABLED` environment variable.
+Friends can split the cost of one product and each pay their own share through PayPal.
 
-- `false` – Split payments disabled.
-- `true` – Split payments enabled.
+1. On the product page, the buyer taps **Split with friends** (or asks the AI assistant to split it) and enters 2–8 names.
+2. Kadai creates one order plus one share per person. The total is split in cents, so shares always add up exactly (e.g. $22.00 ÷ 3 = $7.34 + $7.33 + $7.33). The price always comes from the database.
+3. Everyone gets a tracker page with a **Pay my share** button per person. A PayPal order is created only when that person taps the button.
+4. After each payment the order status updates: Pending → Partially paid → Fully paid. The tracker refreshes every 10 seconds and shows "🎉 Fully paid!" at the end.
+5. **Write reminder** asks the AI for a friendly WhatsApp-style message that names only the people who still need to pay, with the tracker link.
 
-The split-payment API supports creating and retrieving split-payment information and processing shares.
+The feature is switched on with `SPLIT_ENABLED=true`. When it is `false`, the button is hidden and the assistant says group payment is coming soon.
 
 ## Project Structure
 
@@ -210,6 +218,8 @@ http://localhost:3000
 5. Verify order creation, approval, and capture.
 
 > **Sandbox test login:** use any PayPal sandbox **Personal** account to pay. No real money is used.
+>
+> **Note:** the sandbox app must be linked to a sandbox **Business account in a country that accepts USD (e.g. United States)**. An India-based sandbox business account rejects USD orders with `UNSUPPORTED_PAYEE_CURRENCY`.
 
 No real money should be used during Sandbox testing.
 
@@ -220,6 +230,7 @@ No real money should be used during Sandbox testing.
 - AI responses depend on the configured AI providers and their availability.
 - Demo only: one shop, one seller, no login, USD only, no delivery or refunds.
 - Split payments depend on the `SPLIT_ENABLED` setting.
+- No refunds, delivery tracking or stock counts; chat history is not saved.
 
 ## Deployment
 
